@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { Shield, AlertTriangle, Bug, Cookie, Lock, Eye } from "lucide-react"
+import { Shield, AlertTriangle, Bug, Cookie, Lock, Eye, Info } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import CryptoJS from "crypto-js"
+import CookieInspector from "@/components/cookie-inspector"
 
 interface HackerLog {
   timestamp: string
@@ -31,6 +32,8 @@ export default function CookieSecurityDemo() {
   const [xssProtection, setXssProtection] = useState(false)
   const [inputSanitization, setInputSanitization] = useState(false)
   const [cspEnabled, setCspEnabled] = useState(false)
+  const [sameSite, setSameSite] = useState<"Lax" | "Strict" | "None">("Lax")
+  const [secureFlag, setSecureFlag] = useState(false)
   const { toast } = useToast()
 
   // Khóa bí mật cố định để mã hóa AES
@@ -84,7 +87,12 @@ export default function CookieSecurityDemo() {
       }
 
       // Tạo cookie với các thuộc tính bảo vệ
-      let cookieString = `${cookieName}=${finalValue}; path=/; SameSite=Lax`
+      let cookieString = `${cookieName}=${finalValue}; path=/; SameSite=${sameSite}`
+      
+      // Thêm Secure flag nếu được chọn
+      if (secureFlag) {
+        cookieString += "; Secure"
+      }
       
       if (httpOnly) {
         // Lưu ý: HttpOnly không thể được set từ JavaScript phía client
@@ -97,11 +105,11 @@ export default function CookieSecurityDemo() {
       }
 
       // Set cookie (không bao gồm HttpOnly vì JavaScript không thể set HttpOnly)
-      document.cookie = `${cookieName}=${finalValue}; path=/; SameSite=Lax`
+      document.cookie = `${cookieName}=${finalValue}; path=/; SameSite=${sameSite}${secureFlag ? '; Secure' : ''}`
 
       toast({
         title: "✅ Cookie đã được tạo",
-        description: `Cookie "${cookieName}" đã được tạo với các biện pháp bảo vệ${httpOnly ? " HttpOnly" : ""}${aesEncryption ? " và mã hóa AES" : ""}.`,
+        description: `Cookie "${cookieName}" đã được tạo với các biện pháp bảo vệ${httpOnly ? " HttpOnly" : ""}${aesEncryption ? " và mã hóa AES" : ""}${secureFlag ? ", Secure" : ""}, SameSite=${sameSite}.`,
       })
 
       // Log việc tạo cookie
@@ -387,6 +395,45 @@ export default function CookieSecurityDemo() {
                   Content Security Policy
                 </Label>
               </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="secure"
+                  checked={secureFlag}
+                  onCheckedChange={(checked) => setSecureFlag(checked as boolean)}
+                />
+                <Label htmlFor="secure" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Secure Flag (HTTPS only)
+                </Label>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>SameSite:</Label>
+                <div className="flex space-x-2">
+                  <Button
+                    variant={sameSite === "Lax" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSameSite("Lax")}
+                  >
+                    Lax
+                  </Button>
+                  <Button
+                    variant={sameSite === "Strict" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSameSite("Strict")}
+                  >
+                    Strict
+                  </Button>
+                  <Button
+                    variant={sameSite === "None" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSameSite("None")}
+                  >
+                    None
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <Button 
@@ -398,7 +445,7 @@ export default function CookieSecurityDemo() {
               Tạo Cookie
             </Button>
 
-            {(httpOnly || aesEncryption || xssProtection || inputSanitization || cspEnabled) && (
+            {(httpOnly || aesEncryption || xssProtection || inputSanitization || cspEnabled || secureFlag || sameSite !== "Lax") && (
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
@@ -407,6 +454,9 @@ export default function CookieSecurityDemo() {
                   {xssProtection && "XSS Protection: Phát hiện và chặn mã độc hại. "}
                   {inputSanitization && "Input Sanitization: Làm sạch input độc hại. "}
                   {cspEnabled && "CSP: Chặn thực thi script không được phép. "}
+                  {secureFlag && "Secure: Chỉ gửi cookie qua HTTPS. "}
+                  {sameSite === "Strict" && "SameSite=Strict: Cookie chỉ được gửi trong cùng site. "}
+                  {sameSite === "None" && "SameSite=None: Cookie có thể được gửi trong yêu cầu cross-site. "}
                 </AlertDescription>
               </Alert>
             )}
@@ -493,7 +543,10 @@ export default function CookieSecurityDemo() {
         </Card>
       </div>
 
-      {/* Khu vực 3: Nhật ký Hacker */}
+      {/* Khu vực 3: Cookie Inspector */}
+      <CookieInspector />
+
+      {/* Khu vực 4: Nhật ký Hacker */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
